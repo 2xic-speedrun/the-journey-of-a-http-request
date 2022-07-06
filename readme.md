@@ -5,4 +5,12 @@ Specification of the message format is explained here https://www.ietf.org/rfc/r
 Parameters are better described here https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml
 
 ## HTTP
-Soon 
+https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol is actually quite good.
+
+Http 1/1 is simple, and a basic poc is implemented .
+
+Maybe I should do http/2 ? Will attempt some other projects first, I think. Mainly did this to understand the basics of DNS message protocols.
+
+## HTTPs ? 
+Maybe
+

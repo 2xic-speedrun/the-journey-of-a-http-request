@@ -14,9 +14,8 @@ def encode_domain(domain):
         for i in domain.split(".")
     ])+ bytes([0x00])
 
-def create_question_section():
-    qname = "google.com"
-    encoded_name = encode_domain(qname)
+def create_question_section(domain):
+    encoded_name = encode_domain(domain)
 
     q_type = bytes([0, 1])  # A-Record bytes([255])
     q_class = bytes([0, 1]) # in-class bytes([255])
@@ -37,7 +36,9 @@ def create_byte_string(list_of_bits, length):
         response += [0, ] * (length - len(response))
     return response
 
-control = bytes(create_byte_string([
+
+def construct_request(domain):
+    control = bytes(create_byte_string([
         # Control / QR   (request = 0, response = 1) 
         '0'
         # Control / Opcode
@@ -60,47 +61,42 @@ control = bytes(create_byte_string([
         # reserved for error codes 
         '0000',
     ], 2))
-assert len(control) == 2, len(control)
-bits = "{0:b}".format(control[0], control[1])
-assert control == b"\x01\x00"
+    assert len(control) == 2, len(control)
+    assert control == b"\x01\x00"
 
-request = [
-    # Identification 
-    create_n_bytes(bytes([0xAA, 0xAA]), 2),
-    control,
-    # question count
-    create_n_bytes(bytes([1]), 2),
-    # answered count
-    create_n_bytes(bytes([0]), 2),
-    # name server recourses count
-    create_n_bytes(bytes([0]), 2),
-    # additional records count
-    create_n_bytes(bytes([0]), 2),
-]
-request_with_payload = request + [create_question_section()]
-header_bytes = reduce(lambda x, y: x+ y, request)
-request_bytes = reduce(lambda x, y: x+ y, request_with_payload)
+    request = [
+        # Identification 
+        create_n_bytes(bytes([0xAA, 0xAA]), 2),
+        control,
+        # question count
+        create_n_bytes(bytes([1]), 2),
+        # answered count
+        create_n_bytes(bytes([0]), 2),
+        # name server recourses count
+        create_n_bytes(bytes([0]), 2),
+        # additional records count
+        create_n_bytes(bytes([0]), 2),
+    ]
+    request_with_payload = request + [create_question_section(domain)]
+    request_bytes = reduce(lambda x, y: x+ y, request_with_payload)
+    return request_bytes
+
+def send_request(domain):
+    request_bytes = construct_request(domain)
+    clientSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)# socket.SOCK_STREAM)
+    clientSocket.connect(("8.8.8.8", 53))
+    clientSocket.send(request_bytes)
+    response = clientSocket.recv(2048)
+    return response
+
+def get_ip(domain):
+    response = DnsResponse(send_request(domain))
+    return response.answers[0][-1]
 
 if __name__ == "__main__":
-    if "try" in sys.argv:
-        print("sending ", request_bytes)
-        assert len(request_bytes) < 512, "use tcp"
+    response = send_request("google.com")
 
-        clientSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)# socket.SOCK_STREAM)
-        clientSocket.connect(("8.8.8.8", 53))
-        clientSocket.send(request_bytes)
-        response = clientSocket.recv(2048)
+    print("received " , response)
 
-        print("received " , response)
-
-        request = DnsResponse(request_bytes, comment="Request sent")
-        response = DnsResponse(response, comment="Response gotten")
-        print(response)
-        print(request)
-        while True:
-            response = clientSocket.recv(2048)
-            print(response)
-    else:
-        print("would send ", request_bytes)
-        print(DnsResponse(request_bytes))
-    
+    response = DnsResponse(response, comment="Response gotten")
+    print(response)

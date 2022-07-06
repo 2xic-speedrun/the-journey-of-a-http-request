@@ -2,6 +2,8 @@
 from operator import le
 from typing import TypeVar
 
+from numpy import outer
+
 
 class DnsResponse:
     def __init__(self, bytes, comment="") -> None:
@@ -23,8 +25,8 @@ class DnsResponse:
         self.recursive_count = int.from_bytes(self.read(2), "big") 
         self.additional_records = int.from_bytes(self.read(2), "big") 
 
-        self.read_question_section(self.question_count)
-        self.read_answer_section(self.answer_count)
+        self.questions = self.read_question_section(self.question_count)
+        self.answers = self.read_answer_section(self.answer_count)
 
     def read_bit_sequence(self, sequence):
         assert sum(sequence) == 8
@@ -51,12 +53,16 @@ class DnsResponse:
         return self.bytes[self.index:self.index + length]
 
     def read_question_section(self, count):
+        output = []
         for _ in range(count):
-            print(self.parse_question_entry())
+            output.append(self.parse_question_entry())
+        return output
 
     def read_answer_section(self, count):
+        output = []
         for _ in range(count):
-            print(self.parse_answer_entry())
+            output.append(self.parse_answer_entry())
+        return output
 
     def parse_question_entry(self):
         name = self.read_out_name()
