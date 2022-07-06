@@ -1,5 +1,6 @@
 
 from operator import le
+from typing import TypeVar
 
 
 class DnsResponse:
@@ -22,6 +23,9 @@ class DnsResponse:
         self.recursive_count = int.from_bytes(self.read(2), "big") 
         self.additional_records = int.from_bytes(self.read(2), "big") 
 
+        self.read_question_section(self.question_count)
+        self.read_answer_section(self.answer_count)
+
     def read_bit_sequence(self, sequence):
         assert sum(sequence) == 8
         value =  "{0:b}".format(self.bytes[self.index])
@@ -39,10 +43,59 @@ class DnsResponse:
         return response
 
     def read(self, length):
-        response = self.bytes[self.index:self.index + length]
+        response = self.peek(length)
         self.index += length
         return response
+    
+    def peek(self, length):
+        return self.bytes[self.index:self.index + length]
 
+    def read_question_section(self, count):
+        for _ in range(count):
+            print(self.parse_question_entry())
+
+    def read_answer_section(self, count):
+        for _ in range(count):
+            print(self.parse_answer_entry())
+
+    def parse_question_entry(self):
+        name = self.read_out_name()
+        type_value = self.read(2)
+        class_value = self.read(2)
+
+        return (
+            name,
+            type_value,
+            class_value,
+        )
+
+    def parse_answer_entry(self):
+        name = self.read(2)
+        type_value = self.read(2)
+        class_value = self.read(2)
+        ttl = self.read(4)
+        data_length = int.from_bytes(self.read(2), "big")
+        data = ".".join(list(map(lambda x: str(int(x)), self.read(data_length))))
+        return (
+            name,
+            type_value,
+            class_value,
+            ttl,
+            data
+        )
+
+    def read_out_name(self):
+        name = bytes([])
+        while True:
+            length = int.from_bytes(self.peek(1), "big")
+            if length == 0:
+                self.index += 1
+                break
+            self.index += 1
+            name += bytes([ord(".")]) if len(name) > 0 else bytes([])
+            name += self.read(length)
+        return name
+    
     def __str__(self) -> str:
         return """
             {comment}
